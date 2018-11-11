@@ -111,7 +111,6 @@ LDFLAGS = -Os -Wl,--gc-sections,--defsym=__rtc_localtime=0 --specs=nano.specs -m
 # additional libraries to link
 LIBS = -lm
 
-
 # names for the compiler programs
 CC = $(COMPILERPATH)/arm-none-eabi-gcc
 CXX = $(COMPILERPATH)/arm-none-eabi-g++
@@ -122,26 +121,34 @@ SIZE = $(COMPILERPATH)/arm-none-eabi-size
 # TODO: this does not handle Arduino libraries yet...
 C_FILES := $(wildcard *.c)
 CPP_FILES := $(wildcard *.cpp)
-OBJS := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o)
-
 
 # the actual makefile rules (all .o files built by GNU make's default implicit rules)
+BUILD_DIR    =   build
+BIN_DIR    =   bin
+OBJS := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o)
 
-all: $(TARGET).hex
+.PHONY: all clean
+
+all: $(BUILD_DIR) $(BIN_DIR) $(TARGET).hex
+
+$(BUILD_DIR):
+	mkdir $(BUILD_DIR)
+
+$(BIN_DIR):
+	mkdir $(BIN_DIR)
 
 $(TARGET).elf: $(OBJS) $(MCU_LD)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+	mv *.o *.d $(BUILD_DIR)
 
 %.hex: %.elf
 	$(SIZE) $<
 	$(OBJCOPY) -O ihex -R .eeprom $< $@
-ifneq (,$(wildcard $(TOOLSPATH)))
-	$(TOOLSPATH)/teensy_post_compile -file=$(basename $@) -path=$(shell pwd) -tools=$(TOOLSPATH)
-	-$(TOOLSPATH)/teensy_reboot
-endif
+	mv *.elf *.hex $(BIN_DIR)
 
 # compiler generated dependency info
 -include $(OBJS:.o=.d)
 
 clean:
 	rm -f *.o *.d $(TARGET).elf $(TARGET).hex
+	rm -rf $(BUILD_DIR) $(BIN_DIR)
